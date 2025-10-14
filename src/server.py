@@ -60,7 +60,7 @@ def get_repos_http(username: str, limit: int = 10, api_key: str = None) -> str:
         }
         
         response = httpx.get(
-            f"{GITHUB_API_BASE}/users/repos",
+            f"{GITHUB_API_BASE}/user/repos",
             headers=get_headers(api_key),
             params=params,
             timeout=10.0
