@@ -15,16 +15,30 @@ from fastmcp import FastMCP
 mcp = FastMCP("GitHub MCP Server")
 
 # GitHub API configuration
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "demo")
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or os.getenv("GITHUB_API_KEY") or "demo"
 GITHUB_API_BASE = "https://api.github.com"
 
+# Poke API key validation - Use this exact key in Poke's integration settings
+VALID_POKE_API_KEYS = {
+    "sk-github-mcp-akarnik23-2024": "production",  # Your specific key for Poke integration
+    "sk-demo": "demo",  # Demo key for testing
+}
+
+def validate_poke_api_key(api_key: str) -> bool:
+    """Validate Poke API key."""
+    if not api_key:
+        return False
+    return api_key in VALID_POKE_API_KEYS
+
 # Undecorated functions for HTTP endpoint
-def get_repos_http(username: str, limit: int = 10, api_key: str = None) -> str:
+def get_repos_http(username: str = "me", limit: int = 10, api_key: str = None, apiKey: str = None) -> str:
     """Get repositories for a GitHub user."""
     try:
         limit = min(max(limit, 1), 30)  # Clamp between 1 and 30
         
-        if (api_key or GITHUB_TOKEN) == "demo":
+        # Use either api_key or apiKey parameter
+        token = api_key or apiKey or GITHUB_TOKEN
+        if token == "demo":
             # Return demo data
             demo_repos = [
                 {
@@ -58,10 +72,32 @@ def get_repos_http(username: str, limit: int = 10, api_key: str = None) -> str:
             "sort": "updated",
             "per_page": limit
         }
+
+        # Resolve endpoint: include private repos when targeting the authenticated user
+        def get_authenticated_login() -> str:
+            try:
+                resp = httpx.get(f"{GITHUB_API_BASE}/user", headers=get_headers(token), timeout=10.0)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    return (data.get("login") or "").lower()
+            except Exception:
+                pass
+            return ""
+
+        target = (username or "me").lower()
+        endpoint: str
+        if target == "me":
+            endpoint = f"{GITHUB_API_BASE}/user/repos"
+        else:
+            authed = get_authenticated_login() if token != "demo" else ""
+            if authed and authed == target:
+                endpoint = f"{GITHUB_API_BASE}/user/repos"
+            else:
+                endpoint = f"{GITHUB_API_BASE}/users/{username}/repos"
         
         response = httpx.get(
-            f"{GITHUB_API_BASE}/user/repos",
-            headers=get_headers(api_key),
+            endpoint,
+            headers=get_headers(token),
             params=params,
             timeout=10.0
         )
@@ -90,12 +126,14 @@ def get_repos_http(username: str, limit: int = 10, api_key: str = None) -> str:
     except Exception as e:
         return json.dumps({"error": f"Unexpected error: {str(e)}"}, indent=2)
 
-def get_issues_http(owner: str, repo: str, state: str = "open", limit: int = 10, api_key: str = None) -> str:
+def get_issues_http(owner: str, repo: str, state: str = "open", limit: int = 10, api_key: str = None, apiKey: str = None) -> str:
     """Get issues for a GitHub repository."""
     try:
         limit = min(max(limit, 1), 30)  # Clamp between 1 and 30
         
-        if (api_key or GITHUB_TOKEN) == "demo":
+        # Use either api_key or apiKey parameter
+        token = api_key or apiKey or GITHUB_TOKEN
+        if token == "demo":
             # Return demo data
             demo_issues = [
                 {
@@ -133,7 +171,7 @@ def get_issues_http(owner: str, repo: str, state: str = "open", limit: int = 10,
         
         response = httpx.get(
             f"{GITHUB_API_BASE}/repos/{owner}/{repo}/issues",
-            headers=get_headers(api_key),
+            headers=get_headers(token),
             params=params,
             timeout=10.0
         )
@@ -166,12 +204,14 @@ def get_issues_http(owner: str, repo: str, state: str = "open", limit: int = 10,
     except Exception as e:
         return json.dumps({"error": f"Unexpected error: {str(e)}"}, indent=2)
 
-def get_pull_requests_http(owner: str, repo: str, state: str = "open", limit: int = 10, api_key: str = None) -> str:
+def get_pull_requests_http(owner: str, repo: str, state: str = "open", limit: int = 10, api_key: str = None, apiKey: str = None) -> str:
     """Get pull requests for a GitHub repository."""
     try:
         limit = min(max(limit, 1), 30)  # Clamp between 1 and 30
         
-        if (api_key or GITHUB_TOKEN) == "demo":
+        # Use either api_key or apiKey parameter
+        token = api_key or apiKey or GITHUB_TOKEN
+        if token == "demo":
             # Return demo data
             demo_prs = [
                 {
@@ -213,7 +253,7 @@ def get_pull_requests_http(owner: str, repo: str, state: str = "open", limit: in
         
         response = httpx.get(
             f"{GITHUB_API_BASE}/repos/{owner}/{repo}/pulls",
-            headers=get_headers(api_key),
+            headers=get_headers(token),
             params=params,
             timeout=10.0
         )
@@ -244,12 +284,14 @@ def get_pull_requests_http(owner: str, repo: str, state: str = "open", limit: in
     except Exception as e:
         return json.dumps({"error": f"Unexpected error: {str(e)}"}, indent=2)
 
-def search_code_http(query: str, language: str = "", limit: int = 10, api_key: str = None) -> str:
+def search_code_http(query: str, language: str = "", limit: int = 10, api_key: str = None, apiKey: str = None) -> str:
     """Search for code on GitHub."""
     try:
         limit = min(max(limit, 1), 20)  # Clamp between 1 and 20
         
-        if (api_key or GITHUB_TOKEN) == "demo":
+        # Use either api_key or apiKey parameter
+        token = api_key or apiKey or GITHUB_TOKEN
+        if token == "demo":
             # Return demo data
             demo_results = [
                 {
@@ -285,7 +327,7 @@ def search_code_http(query: str, language: str = "", limit: int = 10, api_key: s
         
         response = httpx.get(
             f"{GITHUB_API_BASE}/search/code",
-            headers=get_headers(api_key),
+            headers=get_headers(token),
             params=params,
             timeout=10.0
         )
@@ -300,7 +342,6 @@ def search_code_http(query: str, language: str = "", limit: int = 10, api_key: s
                 "repository": item["repository"]["full_name"],
                 "url": item["html_url"],
                 "language": item.get("language", ""),
-                "size": item["size"],
                 "score": item["score"]
             })
         
@@ -325,15 +366,15 @@ def get_headers(api_key=None):
     # Use provided API key or fallback to environment variable
     token = api_key or GITHUB_TOKEN
     if token and token != "demo":
-        headers["Authorization"] = f"token {token}"
+        headers["Authorization"] = f"Bearer {token}"
     return headers
 
 @mcp.tool()
-def get_repos(username: str, limit: int = 10, api_key: str = None) -> str:
+def get_repos(username: str = "me", limit: int = 10) -> str:
     """Get repositories for a GitHub user.
     
     Args:
-        username: GitHub username
+        username: GitHub username; use "me" (default) for authenticated user
         limit: Number of repositories to return (default: 10, max: 30)
     
     Returns:
@@ -342,7 +383,8 @@ def get_repos(username: str, limit: int = 10, api_key: str = None) -> str:
     try:
         limit = min(max(limit, 1), 30)  # Clamp between 1 and 30
         
-        if (api_key or GITHUB_TOKEN) == "demo":
+        token = GITHUB_TOKEN
+        if token == "demo":
             # Return demo data
             demo_repos = [
                 {
@@ -377,9 +419,13 @@ def get_repos(username: str, limit: int = 10, api_key: str = None) -> str:
             "per_page": limit
         }
         
+        endpoint = (
+            f"{GITHUB_API_BASE}/user/repos" if not username or username.lower() == "me" else f"{GITHUB_API_BASE}/users/{username}/repos"
+        )
+        
         response = httpx.get(
-            f"{GITHUB_API_BASE}/users/{username}/repos",
-            headers=get_headers(api_key),
+            endpoint,
+            headers=get_headers(token),
             params=params,
             timeout=10.0
         )
@@ -424,7 +470,8 @@ def get_issues(owner: str, repo: str, state: str = "open", limit: int = 10) -> s
     try:
         limit = min(max(limit, 1), 30)  # Clamp between 1 and 30
         
-        if (api_key or GITHUB_TOKEN) == "demo":
+        token = GITHUB_TOKEN
+        if token == "demo":
             # Return demo data
             demo_repos = [
                 {
@@ -462,7 +509,7 @@ def get_issues(owner: str, repo: str, state: str = "open", limit: int = 10) -> s
         
         response = httpx.get(
             f"{GITHUB_API_BASE}/repos/{owner}/{repo}/issues",
-            headers=get_headers(),
+            headers=get_headers(token),
             params=params,
             timeout=10.0
         )
@@ -511,7 +558,8 @@ def get_pull_requests(owner: str, repo: str, state: str = "open", limit: int = 1
     try:
         limit = min(max(limit, 1), 30)  # Clamp between 1 and 30
         
-        if (api_key or GITHUB_TOKEN) == "demo":
+        token = GITHUB_TOKEN
+        if token == "demo":
             # Return demo data
             demo_repos = [
                 {
@@ -549,7 +597,7 @@ def get_pull_requests(owner: str, repo: str, state: str = "open", limit: int = 1
         
         response = httpx.get(
             f"{GITHUB_API_BASE}/repos/{owner}/{repo}/pulls",
-            headers=get_headers(),
+            headers=get_headers(token),
             params=params,
             timeout=10.0
         )
@@ -581,11 +629,13 @@ def get_pull_requests(owner: str, repo: str, state: str = "open", limit: int = 1
         return json.dumps({"error": f"Unexpected error: {str(e)}"}, indent=2)
 
 @mcp.tool()
-def search_code(query: str, language: str = "", limit: int = 10) -> str:
+def search_code(query: str, owner: str = "", repo: str = "", language: str = "", limit: int = 10) -> str:
     """Search for code on GitHub.
     
     Args:
         query: Search query
+        owner: Optional repository owner or user for scoping
+        repo: Optional repository name for scoping (use with owner)
         language: Programming language filter (optional)
         limit: Number of results to return (default: 10, max: 20)
     
@@ -595,7 +645,8 @@ def search_code(query: str, language: str = "", limit: int = 10) -> str:
     try:
         limit = min(max(limit, 1), 20)  # Clamp between 1 and 20
         
-        if (api_key or GITHUB_TOKEN) == "demo":
+        token = GITHUB_TOKEN
+        if token == "demo":
             # Return demo data
             demo_repos = [
                 {
@@ -626,6 +677,10 @@ def search_code(query: str, language: str = "", limit: int = 10) -> str:
             return json.dumps(demo_repos, indent=2)
         
         search_query = query
+        if owner and repo:
+            search_query += f" repo:{owner}/{repo}"
+        elif owner:
+            search_query += f" user:{owner}"
         if language:
             search_query += f" language:{language}"
         
@@ -637,7 +692,7 @@ def search_code(query: str, language: str = "", limit: int = 10) -> str:
         
         response = httpx.get(
             f"{GITHUB_API_BASE}/search/code",
-            headers=get_headers(),
+            headers=get_headers(token),
             params=params,
             timeout=10.0
         )
@@ -652,7 +707,6 @@ def search_code(query: str, language: str = "", limit: int = 10) -> str:
                 "repository": item["repository"]["full_name"],
                 "url": item["html_url"],
                 "language": item.get("language", ""),
-                "size": item["size"],
                 "score": item["score"]
             })
         
@@ -844,6 +898,15 @@ if __name__ == "__main__":
             elif request.get("method") == "tools/call":
                 tool_name = request.get("params", {}).get("name")
                 tool_args = request.get("params", {}).get("arguments", {})
+                
+                # Validate Poke API key if provided
+                poke_api_key = request.get("params", {}).get("apiKey") or request.get("params", {}).get("api_key")
+                if poke_api_key and not validate_poke_api_key(poke_api_key):
+                    return JSONResponse(content={
+                        "jsonrpc": "2.0",
+                        "id": request.get("id"),
+                        "error": {"code": -32602, "message": "Invalid API key"}
+                    })
                 
                 if tool_name == "get_repos":
                     result = get_repos_http(**tool_args)
