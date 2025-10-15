@@ -18,82 +18,30 @@ mcp = FastMCP("GitHub MCP Server")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or os.getenv("GITHUB_API_KEY") or "demo"
 GITHUB_API_BASE = "https://api.github.com"
 
-# Poke API key validation - Use this exact key in Poke's integration settings
-VALID_POKE_API_KEYS = {
-    "sk-github-mcp-akarnik23-2024": "production",  # Your specific key for Poke integration
-    "sk-demo": "demo",  # Demo key for testing
-}
-
-def validate_poke_api_key(api_key: str) -> bool:
-    """Validate Poke API key."""
-    if not api_key:
-        return False
-    return api_key in VALID_POKE_API_KEYS
 
 # Undecorated functions for HTTP endpoint
-def get_repos_http(username: str = "me", limit: int = 10, api_key: str = None, apiKey: str = None) -> str:
+def get_repos_http(username: str = None, limit: int = 10) -> str:
     """Get repositories for a GitHub user."""
     try:
         limit = min(max(limit, 1), 30)  # Clamp between 1 and 30
         
-        # Use either api_key or apiKey parameter
-        token = api_key or apiKey or GITHUB_TOKEN
-        if token == "demo":
-            # Return demo data
-            demo_repos = [
-                {
-                    "name": "vscode",
-                    "full_name": "microsoft/vscode",
-                    "description": "Visual Studio Code",
-                    "url": "https://github.com/microsoft/vscode",
-                    "stars": 150000,
-                    "forks": 26000,
-                    "language": "TypeScript",
-                    "created_at": "2015-09-03T20:33:27Z",
-                    "updated_at": "2024-01-15T10:30:00Z",
-                    "private": False
-                },
-                {
-                    "name": "react",
-                    "full_name": "facebook/react",
-                    "description": "A declarative, efficient, and flexible JavaScript library for building user interfaces.",
-                    "url": "https://github.com/facebook/react",
-                    "stars": 220000,
-                    "forks": 45000,
-                    "language": "JavaScript",
-                    "created_at": "2013-05-24T16:15:54Z",
-                    "updated_at": "2024-01-15T12:00:00Z",
-                    "private": False
-                }
-            ]
-            return json.dumps(demo_repos, indent=2)
+        token = GITHUB_TOKEN
+        if not token or token == "demo":
+            return json.dumps({"error": "GitHub token not configured. Please set GITHUB_TOKEN environment variable."}, indent=2)
         
         params = {
             "sort": "updated",
             "per_page": limit
         }
 
-        # Resolve endpoint: include private repos when targeting the authenticated user
-        def get_authenticated_login() -> str:
-            try:
-                resp = httpx.get(f"{GITHUB_API_BASE}/user", headers=get_headers(token), timeout=10.0)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    return (data.get("login") or "").lower()
-            except Exception:
-                pass
-            return ""
-
-        target = (username or "me").lower()
-        endpoint: str
-        if target == "me":
-            endpoint = f"{GITHUB_API_BASE}/user/repos"
+        # Determine endpoint based on username parameter
+        if username and username.strip():
+            # Get repos for specific user (public only)
+            endpoint = f"{GITHUB_API_BASE}/users/{username}/repos"
         else:
-            authed = get_authenticated_login() if token != "demo" else ""
-            if authed and authed == target:
-                endpoint = f"{GITHUB_API_BASE}/user/repos"
-            else:
-                endpoint = f"{GITHUB_API_BASE}/users/{username}/repos"
+            # Get repos for authenticated user (public + private)
+            # This happens when username is None or empty string
+            endpoint = f"{GITHUB_API_BASE}/user/repos"
         
         response = httpx.get(
             endpoint,
@@ -126,42 +74,14 @@ def get_repos_http(username: str = "me", limit: int = 10, api_key: str = None, a
     except Exception as e:
         return json.dumps({"error": f"Unexpected error: {str(e)}"}, indent=2)
 
-def get_issues_http(owner: str, repo: str, state: str = "open", limit: int = 10, api_key: str = None, apiKey: str = None) -> str:
+def get_issues_http(owner: str, repo: str, state: str = "open", limit: int = 10) -> str:
     """Get issues for a GitHub repository."""
     try:
         limit = min(max(limit, 1), 30)  # Clamp between 1 and 30
         
-        # Use either api_key or apiKey parameter
-        token = api_key or apiKey or GITHUB_TOKEN
-        if token == "demo":
-            # Return demo data
-            demo_issues = [
-                {
-                    "number": 12345,
-                    "title": "Bug: Component not rendering correctly",
-                    "body": "The component is not displaying the expected content...",
-                    "state": "open",
-                    "url": f"https://github.com/{owner}/{repo}/issues/12345",
-                    "user": "developer123",
-                    "labels": ["bug", "frontend"],
-                    "created_at": "2024-01-10T10:30:00Z",
-                    "updated_at": "2024-01-15T14:20:00Z",
-                    "comments": 5
-                },
-                {
-                    "number": 12344,
-                    "title": "Feature: Add dark mode support",
-                    "body": "It would be great to have a dark mode option...",
-                    "state": "open",
-                    "url": f"https://github.com/{owner}/{repo}/issues/12344",
-                    "user": "feature-requestor",
-                    "labels": ["enhancement", "ui"],
-                    "created_at": "2024-01-08T09:15:00Z",
-                    "updated_at": "2024-01-12T16:45:00Z",
-                    "comments": 12
-                }
-            ]
-            return json.dumps(demo_issues, indent=2)
+        token = GITHUB_TOKEN
+        if not token or token == "demo":
+            return json.dumps({"error": "GitHub token not configured. Please set GITHUB_TOKEN environment variable."}, indent=2)
         
         params = {
             "state": state,
@@ -204,46 +124,14 @@ def get_issues_http(owner: str, repo: str, state: str = "open", limit: int = 10,
     except Exception as e:
         return json.dumps({"error": f"Unexpected error: {str(e)}"}, indent=2)
 
-def get_pull_requests_http(owner: str, repo: str, state: str = "open", limit: int = 10, api_key: str = None, apiKey: str = None) -> str:
+def get_pull_requests_http(owner: str, repo: str, state: str = "open", limit: int = 10) -> str:
     """Get pull requests for a GitHub repository."""
     try:
         limit = min(max(limit, 1), 30)  # Clamp between 1 and 30
         
-        # Use either api_key or apiKey parameter
-        token = api_key or apiKey or GITHUB_TOKEN
-        if token == "demo":
-            # Return demo data
-            demo_prs = [
-                {
-                    "number": 6789,
-                    "title": "Fix: Resolve memory leak in data processing",
-                    "body": "This PR fixes a memory leak that was occurring...",
-                    "state": "open",
-                    "url": f"https://github.com/{owner}/{repo}/pull/6789",
-                    "user": "bug-fixer",
-                    "head": "feature/fix-memory-leak",
-                    "base": "main",
-                    "created_at": "2024-01-12T11:30:00Z",
-                    "updated_at": "2024-01-15T09:15:00Z",
-                    "draft": False,
-                    "mergeable": True
-                },
-                {
-                    "number": 6788,
-                    "title": "Add: New authentication system",
-                    "body": "Implements OAuth2 authentication flow...",
-                    "state": "open",
-                    "url": f"https://github.com/{owner}/{repo}/pull/6788",
-                    "user": "auth-developer",
-                    "head": "feature/oauth2-auth",
-                    "base": "main",
-                    "created_at": "2024-01-10T14:20:00Z",
-                    "updated_at": "2024-01-14T16:30:00Z",
-                    "draft": False,
-                    "mergeable": None
-                }
-            ]
-            return json.dumps(demo_prs, indent=2)
+        token = GITHUB_TOKEN
+        if not token or token == "demo":
+            return json.dumps({"error": "GitHub token not configured. Please set GITHUB_TOKEN environment variable."}, indent=2)
         
         params = {
             "state": state,
@@ -284,36 +172,14 @@ def get_pull_requests_http(owner: str, repo: str, state: str = "open", limit: in
     except Exception as e:
         return json.dumps({"error": f"Unexpected error: {str(e)}"}, indent=2)
 
-def search_code_http(query: str, language: str = "", limit: int = 10, api_key: str = None, apiKey: str = None) -> str:
+def search_code_http(query: str, language: str = "", limit: int = 10) -> str:
     """Search for code on GitHub."""
     try:
         limit = min(max(limit, 1), 20)  # Clamp between 1 and 20
         
-        # Use either api_key or apiKey parameter
-        token = api_key or apiKey or GITHUB_TOKEN
-        if token == "demo":
-            # Return demo data
-            demo_results = [
-                {
-                    "name": "app.js",
-                    "path": "src/app.js",
-                    "repository": "microsoft/vscode",
-                    "url": "https://github.com/microsoft/vscode/blob/main/src/app.js",
-                    "language": "JavaScript",
-                    "size": 1024,
-                    "score": 95.5
-                },
-                {
-                    "name": "component.tsx",
-                    "path": "components/Button.tsx",
-                    "repository": "facebook/react",
-                    "url": "https://github.com/facebook/react/blob/main/components/Button.tsx",
-                    "language": "TypeScript",
-                    "size": 2048,
-                    "score": 88.2
-                }
-            ]
-            return json.dumps({"total_count": 2, "results": demo_results}, indent=2)
+        token = GITHUB_TOKEN
+        if not token or token == "demo":
+            return json.dumps({"error": "GitHub token not configured. Please set GITHUB_TOKEN environment variable."}, indent=2)
         
         search_query = query
         if language:
@@ -370,89 +236,17 @@ def get_headers(api_key=None):
     return headers
 
 @mcp.tool()
-def get_repos(username: str = "me", limit: int = 10) -> str:
+def get_repos(username: str = None, limit: int = 10) -> str:
     """Get repositories for a GitHub user.
     
     Args:
-        username: GitHub username; use "me" (default) for authenticated user
+        username: GitHub username (optional); if not provided, returns authenticated user's repos
         limit: Number of repositories to return (default: 10, max: 30)
     
     Returns:
         JSON string with repository data
     """
-    try:
-        limit = min(max(limit, 1), 30)  # Clamp between 1 and 30
-        
-        token = GITHUB_TOKEN
-        if token == "demo":
-            # Return demo data
-            demo_repos = [
-                {
-                    "name": "vscode",
-                    "full_name": "microsoft/vscode",
-                    "description": "Visual Studio Code",
-                    "url": "https://github.com/microsoft/vscode",
-                    "stars": 150000,
-                    "forks": 26000,
-                    "language": "TypeScript",
-                    "created_at": "2015-09-03T20:33:27Z",
-                    "updated_at": "2024-01-15T10:30:00Z",
-                    "private": False
-                },
-                {
-                    "name": "react",
-                    "full_name": "facebook/react",
-                    "description": "A declarative, efficient, and flexible JavaScript library for building user interfaces.",
-                    "url": "https://github.com/facebook/react",
-                    "stars": 220000,
-                    "forks": 45000,
-                    "language": "JavaScript",
-                    "created_at": "2013-05-24T16:15:54Z",
-                    "updated_at": "2024-01-15T12:00:00Z",
-                    "private": False
-                }
-            ]
-            return json.dumps(demo_repos, indent=2)
-        
-        params = {
-            "sort": "updated",
-            "per_page": limit
-        }
-        
-        endpoint = (
-            f"{GITHUB_API_BASE}/user/repos" if not username or username.lower() == "me" else f"{GITHUB_API_BASE}/users/{username}/repos"
-        )
-        
-        response = httpx.get(
-            endpoint,
-            headers=get_headers(token),
-            params=params,
-            timeout=10.0
-        )
-        response.raise_for_status()
-        repos = response.json()
-        
-        formatted_repos = []
-        for repo in repos:
-            formatted_repos.append({
-                "name": repo["name"],
-                "full_name": repo["full_name"],
-                "description": repo.get("description", ""),
-                "url": repo["html_url"],
-                "stars": repo["stargazers_count"],
-                "forks": repo["forks_count"],
-                "language": repo.get("language", ""),
-                "created_at": repo["created_at"],
-                "updated_at": repo["updated_at"],
-                "private": repo["private"]
-            })
-        
-        return json.dumps(formatted_repos, indent=2)
-        
-    except httpx.RequestError as e:
-        return json.dumps({"error": f"Request failed: {str(e)}"}, indent=2)
-    except Exception as e:
-        return json.dumps({"error": f"Unexpected error: {str(e)}"}, indent=2)
+    return get_repos_http(username, limit)
 
 @mcp.tool()
 def get_issues(owner: str, repo: str, state: str = "open", limit: int = 10) -> str:
@@ -467,80 +261,7 @@ def get_issues(owner: str, repo: str, state: str = "open", limit: int = 10) -> s
     Returns:
         JSON string with issues data
     """
-    try:
-        limit = min(max(limit, 1), 30)  # Clamp between 1 and 30
-        
-        token = GITHUB_TOKEN
-        if token == "demo":
-            # Return demo data
-            demo_repos = [
-                {
-                    "name": "vscode",
-                    "full_name": "microsoft/vscode",
-                    "description": "Visual Studio Code",
-                    "url": "https://github.com/microsoft/vscode",
-                    "stars": 150000,
-                    "forks": 26000,
-                    "language": "TypeScript",
-                    "created_at": "2015-09-03T20:33:27Z",
-                    "updated_at": "2024-01-15T10:30:00Z",
-                    "private": False
-                },
-                {
-                    "name": "react",
-                    "full_name": "facebook/react",
-                    "description": "A declarative, efficient, and flexible JavaScript library for building user interfaces.",
-                    "url": "https://github.com/facebook/react",
-                    "stars": 220000,
-                    "forks": 45000,
-                    "language": "JavaScript",
-                    "created_at": "2013-05-24T16:15:54Z",
-                    "updated_at": "2024-01-15T12:00:00Z",
-                    "private": False
-                }
-            ]
-            return json.dumps(demo_repos, indent=2)
-        
-        params = {
-            "state": state,
-            "per_page": limit,
-            "sort": "updated"
-        }
-        
-        response = httpx.get(
-            f"{GITHUB_API_BASE}/repos/{owner}/{repo}/issues",
-            headers=get_headers(token),
-            params=params,
-            timeout=10.0
-        )
-        response.raise_for_status()
-        issues = response.json()
-        
-        formatted_issues = []
-        for issue in issues:
-            # Skip pull requests (they appear in issues API)
-            if "pull_request" in issue:
-                continue
-                
-            formatted_issues.append({
-                "number": issue["number"],
-                "title": issue["title"],
-                "body": issue.get("body", ""),
-                "state": issue["state"],
-                "url": issue["html_url"],
-                "user": issue["user"]["login"],
-                "labels": [label["name"] for label in issue["labels"]],
-                "created_at": issue["created_at"],
-                "updated_at": issue["updated_at"],
-                "comments": issue["comments"]
-            })
-        
-        return json.dumps(formatted_issues, indent=2)
-        
-    except httpx.RequestError as e:
-        return json.dumps({"error": f"Request failed: {str(e)}"}, indent=2)
-    except Exception as e:
-        return json.dumps({"error": f"Unexpected error: {str(e)}"}, indent=2)
+    return get_issues_http(owner, repo, state, limit)
 
 @mcp.tool()
 def get_pull_requests(owner: str, repo: str, state: str = "open", limit: int = 10) -> str:
@@ -555,172 +276,21 @@ def get_pull_requests(owner: str, repo: str, state: str = "open", limit: int = 1
     Returns:
         JSON string with pull requests data
     """
-    try:
-        limit = min(max(limit, 1), 30)  # Clamp between 1 and 30
-        
-        token = GITHUB_TOKEN
-        if token == "demo":
-            # Return demo data
-            demo_repos = [
-                {
-                    "name": "vscode",
-                    "full_name": "microsoft/vscode",
-                    "description": "Visual Studio Code",
-                    "url": "https://github.com/microsoft/vscode",
-                    "stars": 150000,
-                    "forks": 26000,
-                    "language": "TypeScript",
-                    "created_at": "2015-09-03T20:33:27Z",
-                    "updated_at": "2024-01-15T10:30:00Z",
-                    "private": False
-                },
-                {
-                    "name": "react",
-                    "full_name": "facebook/react",
-                    "description": "A declarative, efficient, and flexible JavaScript library for building user interfaces.",
-                    "url": "https://github.com/facebook/react",
-                    "stars": 220000,
-                    "forks": 45000,
-                    "language": "JavaScript",
-                    "created_at": "2013-05-24T16:15:54Z",
-                    "updated_at": "2024-01-15T12:00:00Z",
-                    "private": False
-                }
-            ]
-            return json.dumps(demo_repos, indent=2)
-        
-        params = {
-            "state": state,
-            "per_page": limit,
-            "sort": "updated"
-        }
-        
-        response = httpx.get(
-            f"{GITHUB_API_BASE}/repos/{owner}/{repo}/pulls",
-            headers=get_headers(token),
-            params=params,
-            timeout=10.0
-        )
-        response.raise_for_status()
-        prs = response.json()
-        
-        formatted_prs = []
-        for pr in prs:
-            formatted_prs.append({
-                "number": pr["number"],
-                "title": pr["title"],
-                "body": pr.get("body", ""),
-                "state": pr["state"],
-                "url": pr["html_url"],
-                "user": pr["user"]["login"],
-                "head": pr["head"]["ref"],
-                "base": pr["base"]["ref"],
-                "created_at": pr["created_at"],
-                "updated_at": pr["updated_at"],
-                "draft": pr["draft"],
-                "mergeable": pr.get("mergeable")
-            })
-        
-        return json.dumps(formatted_prs, indent=2)
-        
-    except httpx.RequestError as e:
-        return json.dumps({"error": f"Request failed: {str(e)}"}, indent=2)
-    except Exception as e:
-        return json.dumps({"error": f"Unexpected error: {str(e)}"}, indent=2)
+    return get_pull_requests_http(owner, repo, state, limit)
 
 @mcp.tool()
-def search_code(query: str, owner: str = "", repo: str = "", language: str = "", limit: int = 10) -> str:
+def search_code(query: str, language: str = "", limit: int = 10) -> str:
     """Search for code on GitHub.
     
     Args:
         query: Search query
-        owner: Optional repository owner or user for scoping
-        repo: Optional repository name for scoping (use with owner)
         language: Programming language filter (optional)
         limit: Number of results to return (default: 10, max: 20)
     
     Returns:
         JSON string with search results
     """
-    try:
-        limit = min(max(limit, 1), 20)  # Clamp between 1 and 20
-        
-        token = GITHUB_TOKEN
-        if token == "demo":
-            # Return demo data
-            demo_repos = [
-                {
-                    "name": "vscode",
-                    "full_name": "microsoft/vscode",
-                    "description": "Visual Studio Code",
-                    "url": "https://github.com/microsoft/vscode",
-                    "stars": 150000,
-                    "forks": 26000,
-                    "language": "TypeScript",
-                    "created_at": "2015-09-03T20:33:27Z",
-                    "updated_at": "2024-01-15T10:30:00Z",
-                    "private": False
-                },
-                {
-                    "name": "react",
-                    "full_name": "facebook/react",
-                    "description": "A declarative, efficient, and flexible JavaScript library for building user interfaces.",
-                    "url": "https://github.com/facebook/react",
-                    "stars": 220000,
-                    "forks": 45000,
-                    "language": "JavaScript",
-                    "created_at": "2013-05-24T16:15:54Z",
-                    "updated_at": "2024-01-15T12:00:00Z",
-                    "private": False
-                }
-            ]
-            return json.dumps(demo_repos, indent=2)
-        
-        search_query = query
-        if owner and repo:
-            search_query += f" repo:{owner}/{repo}"
-        elif owner:
-            search_query += f" user:{owner}"
-        if language:
-            search_query += f" language:{language}"
-        
-        params = {
-            "q": search_query,
-            "per_page": limit,
-            "sort": "indexed"
-        }
-        
-        response = httpx.get(
-            f"{GITHUB_API_BASE}/search/code",
-            headers=get_headers(token),
-            params=params,
-            timeout=10.0
-        )
-        response.raise_for_status()
-        data = response.json()
-        
-        results = []
-        for item in data.get("items", []):
-            results.append({
-                "name": item["name"],
-                "path": item["path"],
-                "repository": item["repository"]["full_name"],
-                "url": item["html_url"],
-                "language": item.get("language", ""),
-                "score": item["score"]
-            })
-        
-        search_results = {
-            "total_count": data["total_count"],
-            "results": results
-        }
-        
-        return json.dumps(search_results, indent=2)
-        
-    except httpx.RequestError as e:
-        return json.dumps({"error": f"Request failed: {str(e)}"}, indent=2)
-    except Exception as e:
-        return json.dumps({"error": f"Unexpected error: {str(e)}"}, indent=2)
+    return search_code_http(query, language, limit)
 
 if __name__ == "__main__":
     # Run in HTTP mode for testing
@@ -773,7 +343,7 @@ if __name__ == "__main__":
                             "properties": {
                                 "username": {
                                     "type": "string",
-                                    "description": "GitHub username"
+                                    "description": "GitHub username (optional; if not provided, returns authenticated user's repos)"
                                 },
                                 "limit": {
                                     "type": "integer",
@@ -782,12 +352,8 @@ if __name__ == "__main__":
                                     "maximum": 30,
                                     "default": 10
                                 },
-                                "api_key": {
-                                    "type": "string",
-                                    "description": "GitHub personal access token (optional)"
-                                }
                             },
-                            "required": ["username"]
+                            "required": []
                         }
                     },
                     {
@@ -817,10 +383,6 @@ if __name__ == "__main__":
                                     "maximum": 30,
                                     "default": 10
                                 },
-                                "api_key": {
-                                    "type": "string",
-                                    "description": "GitHub personal access token (optional)"
-                                }
                             },
                             "required": ["owner", "repo"]
                         }
@@ -852,10 +414,6 @@ if __name__ == "__main__":
                                     "maximum": 30,
                                     "default": 10
                                 },
-                                "api_key": {
-                                    "type": "string",
-                                    "description": "GitHub personal access token (optional)"
-                                }
                             },
                             "required": ["owner", "repo"]
                         }
@@ -881,10 +439,6 @@ if __name__ == "__main__":
                                     "maximum": 20,
                                     "default": 10
                                 },
-                                "api_key": {
-                                    "type": "string",
-                                    "description": "GitHub personal access token (optional)"
-                                }
                             },
                             "required": ["query"]
                         }
@@ -898,15 +452,6 @@ if __name__ == "__main__":
             elif request.get("method") == "tools/call":
                 tool_name = request.get("params", {}).get("name")
                 tool_args = request.get("params", {}).get("arguments", {})
-                
-                # Validate Poke API key if provided
-                poke_api_key = request.get("params", {}).get("apiKey") or request.get("params", {}).get("api_key")
-                if poke_api_key and not validate_poke_api_key(poke_api_key):
-                    return JSONResponse(content={
-                        "jsonrpc": "2.0",
-                        "id": request.get("id"),
-                        "error": {"code": -32602, "message": "Invalid API key"}
-                    })
                 
                 if tool_name == "get_repos":
                     result = get_repos_http(**tool_args)
