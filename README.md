@@ -37,22 +37,21 @@ python src/server.py
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
 
 **Steps:**
-1. **Fork this repository** (if you haven't already)
+1. **Click the "Deploy to Render" button above** or go to [render.com](https://render.com)
 2. **Connect your GitHub account to Render** (if you haven't already)
-3. **Click the "Deploy to Render" button above** or go to [render.com](https://render.com)
-4. **Create a new Web Service:**
-   - Connect your forked repository
+3. **Create a new Web Service:**
+   - Connect this repository
    - **Name**: `github-mcp`
    - **Environment**: `Python 3`
    - **Plan**: `Free`
    - **Build Command**: `pip install -r requirements.txt`
    - **Start Command**: `python src/server.py`
-5. **Set environment variable:**
+4. **Set environment variable:**
    - Go to your Render service dashboard
    - Click on "Environment" tab
    - Add environment variable: `GITHUB_TOKEN` = `your_github_token_here`
    - Click "Save Changes"
-6. **Deploy!**
+5. **Deploy!**
 
 Your server will be available at `https://github-mcp.onrender.com/mcp`
 
