@@ -36,8 +36,26 @@ def get_repos_http(username: str = None, limit: int = 10) -> str:
 
         # Determine endpoint based on username parameter
         if username and username.strip():
-            # Get repos for specific user (public only)
+            # Default to public-only endpoint for arbitrary users
             endpoint = f"{GITHUB_API_BASE}/users/{username}/repos"
+            # If the provided username matches the authenticated user, use /user/repos to include private repos
+            try:
+                me_response = httpx.get(
+                    f"{GITHUB_API_BASE}/user",
+                    headers=get_headers(token),
+                    timeout=10.0
+                )
+                me_response.raise_for_status()
+                me = me_response.json()
+                auth_login = (me.get("login") or "").strip()
+                if auth_login and auth_login.lower() == username.strip().lower():
+                    endpoint = f"{GITHUB_API_BASE}/user/repos"
+            except httpx.RequestError:
+                # Fall back to public endpoint if we cannot determine the authenticated user
+                pass
+            except httpx.HTTPStatusError:
+                # Fall back to public endpoint if token is invalid/insufficient
+                pass
         else:
             # Get repos for authenticated user (public + private)
             # This happens when username is None or empty string
