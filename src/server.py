@@ -18,10 +18,29 @@ mcp = FastMCP("GitHub MCP Server")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or os.getenv("GITHUB_API_KEY") or "demo"
 GITHUB_API_BASE = "https://api.github.com"
 
+def get_headers(api_key=None):
+    """Get headers for GitHub API requests."""
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "GitHub-MCP-Server"
+    }
+    # Use provided API key or fallback to environment variable
+    token = api_key or GITHUB_TOKEN
+    if token and token != "demo":
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
 
-# Undecorated functions for HTTP endpoint
-def get_repos_http(username: str = None, limit: int = 10) -> str:
-    """Get repositories for a GitHub user."""
+@mcp.tool()
+def get_repos(username: str = None, limit: int = 10) -> str:
+    """Get repositories for a GitHub user.
+    
+    Args:
+        username: GitHub username (optional); if not provided, returns authenticated user's repos
+        limit: Number of repositories to return (default: 10, max: 30)
+    
+    Returns:
+        JSON string with repository data
+    """
     try:
         limit = min(max(limit, 1), 30)  # Clamp between 1 and 30
         
@@ -92,8 +111,19 @@ def get_repos_http(username: str = None, limit: int = 10) -> str:
     except Exception as e:
         return json.dumps({"error": f"Unexpected error: {str(e)}"}, indent=2)
 
-def get_issues_http(owner: str, repo: str, state: str = "open", limit: int = 10) -> str:
-    """Get issues for a GitHub repository."""
+@mcp.tool()
+def get_issues(owner: str, repo: str, state: str = "open", limit: int = 10) -> str:
+    """Get issues for a GitHub repository.
+    
+    Args:
+        owner: Repository owner
+        repo: Repository name
+        state: Issue state: open, closed, or all (default: open)
+        limit: Number of issues to return (default: 10, max: 30)
+    
+    Returns:
+        JSON string with issues data
+    """
     try:
         limit = min(max(limit, 1), 30)  # Clamp between 1 and 30
         
@@ -142,8 +172,19 @@ def get_issues_http(owner: str, repo: str, state: str = "open", limit: int = 10)
     except Exception as e:
         return json.dumps({"error": f"Unexpected error: {str(e)}"}, indent=2)
 
-def get_pull_requests_http(owner: str, repo: str, state: str = "open", limit: int = 10) -> str:
-    """Get pull requests for a GitHub repository."""
+@mcp.tool()
+def get_pull_requests(owner: str, repo: str, state: str = "open", limit: int = 10) -> str:
+    """Get pull requests for a GitHub repository.
+    
+    Args:
+        owner: Repository owner
+        repo: Repository name
+        state: PR state: open, closed, or all (default: open)
+        limit: Number of PRs to return (default: 10, max: 30)
+    
+    Returns:
+        JSON string with pull requests data
+    """
     try:
         limit = min(max(limit, 1), 30)  # Clamp between 1 and 30
         
@@ -190,8 +231,18 @@ def get_pull_requests_http(owner: str, repo: str, state: str = "open", limit: in
     except Exception as e:
         return json.dumps({"error": f"Unexpected error: {str(e)}"}, indent=2)
 
-def search_code_http(query: str, language: str = "", limit: int = 10) -> str:
-    """Search for code on GitHub."""
+@mcp.tool()
+def search_code(query: str, language: str = "", limit: int = 10) -> str:
+    """Search for code on GitHub.
+    
+    Args:
+        query: Search query
+        language: Programming language filter (optional)
+        limit: Number of results to return (default: 10, max: 20)
+    
+    Returns:
+        JSON string with search results
+    """
     try:
         limit = min(max(limit, 1), 20)  # Clamp between 1 and 20
         
@@ -241,272 +292,11 @@ def search_code_http(query: str, language: str = "", limit: int = 10) -> str:
     except Exception as e:
         return json.dumps({"error": f"Unexpected error: {str(e)}"}, indent=2)
 
-def get_headers(api_key=None):
-    """Get headers for GitHub API requests."""
-    headers = {
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "GitHub-MCP-Server"
-    }
-    # Use provided API key or fallback to environment variable
-    token = api_key or GITHUB_TOKEN
-    if token and token != "demo":
-        headers["Authorization"] = f"Bearer {token}"
-    return headers
-
-@mcp.tool()
-def get_repos(username: str = None, limit: int = 10) -> str:
-    """Get repositories for a GitHub user.
-    
-    Args:
-        username: GitHub username (optional); if not provided, returns authenticated user's repos
-        limit: Number of repositories to return (default: 10, max: 30)
-    
-    Returns:
-        JSON string with repository data
-    """
-    return get_repos_http(username, limit)
-
-@mcp.tool()
-def get_issues(owner: str, repo: str, state: str = "open", limit: int = 10) -> str:
-    """Get issues for a GitHub repository.
-    
-    Args:
-        owner: Repository owner
-        repo: Repository name
-        state: Issue state: open, closed, or all (default: open)
-        limit: Number of issues to return (default: 10, max: 30)
-    
-    Returns:
-        JSON string with issues data
-    """
-    return get_issues_http(owner, repo, state, limit)
-
-@mcp.tool()
-def get_pull_requests(owner: str, repo: str, state: str = "open", limit: int = 10) -> str:
-    """Get pull requests for a GitHub repository.
-    
-    Args:
-        owner: Repository owner
-        repo: Repository name
-        state: PR state: open, closed, or all (default: open)
-        limit: Number of PRs to return (default: 10, max: 30)
-    
-    Returns:
-        JSON string with pull requests data
-    """
-    return get_pull_requests_http(owner, repo, state, limit)
-
-@mcp.tool()
-def search_code(query: str, language: str = "", limit: int = 10) -> str:
-    """Search for code on GitHub.
-    
-    Args:
-        query: Search query
-        language: Programming language filter (optional)
-        limit: Number of results to return (default: 10, max: 20)
-    
-    Returns:
-        JSON string with search results
-    """
-    return search_code_http(query, language, limit)
-
 if __name__ == "__main__":
-    # Run in HTTP mode for testing
-    import uvicorn
-    from fastapi import FastAPI
-    from fastapi.responses import JSONResponse
-    from fastapi.middleware.cors import CORSMiddleware
-    import json
-    
-    # Create FastAPI app
-    app = FastAPI()
-    
-    # Add CORS middleware
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-    
-    @app.get("/")
-    async def health_check():
-        return {"status": "ok", "server": "GitHub MCP Server"}
-    
-    @app.post("/")
-    @app.post("/mcp")
-    async def mcp_endpoint(request: dict):
-        """Handle MCP requests via HTTP POST"""
-        try:
-            print(f"Received request: {request}")
-            
-            if request.get("method") == "initialize":
-                return JSONResponse(content={
-                    "jsonrpc": "2.0",
-                    "id": request.get("id"),
-                    "result": {
-                        "protocolVersion": "2024-11-05",
-                        "capabilities": {"tools": {}},
-                        "serverInfo": {"name": "GitHub MCP Server", "version": "1.0.0"}
-                    }
-                })
-            elif request.get("method") == "tools/list":
-                tools = [
-                    {
-                        "name": "get_repos", 
-                        "description": "Get repositories for a GitHub user", 
-                        "inputSchema": {
-                            "type": "object", 
-                            "properties": {
-                                "username": {
-                                    "type": "string",
-                                    "description": "GitHub username (optional; if not provided, returns authenticated user's repos)"
-                                },
-                                "limit": {
-                                    "type": "integer",
-                                    "description": "Number of repositories to return (1-30)",
-                                    "minimum": 1,
-                                    "maximum": 30,
-                                    "default": 10
-                                },
-                            },
-                            "required": []
-                        }
-                    },
-                    {
-                        "name": "get_issues", 
-                        "description": "Get issues for a GitHub repository", 
-                        "inputSchema": {
-                            "type": "object", 
-                            "properties": {
-                                "owner": {
-                                    "type": "string",
-                                    "description": "Repository owner"
-                                },
-                                "repo": {
-                                    "type": "string",
-                                    "description": "Repository name"
-                                },
-                                "state": {
-                                    "type": "string",
-                                    "description": "Issue state",
-                                    "enum": ["open", "closed", "all"],
-                                    "default": "open"
-                                },
-                                "limit": {
-                                    "type": "integer",
-                                    "description": "Number of issues to return (1-30)",
-                                    "minimum": 1,
-                                    "maximum": 30,
-                                    "default": 10
-                                },
-                            },
-                            "required": ["owner", "repo"]
-                        }
-                    },
-                    {
-                        "name": "get_pull_requests", 
-                        "description": "Get pull requests for a GitHub repository", 
-                        "inputSchema": {
-                            "type": "object", 
-                            "properties": {
-                                "owner": {
-                                    "type": "string",
-                                    "description": "Repository owner"
-                                },
-                                "repo": {
-                                    "type": "string",
-                                    "description": "Repository name"
-                                },
-                                "state": {
-                                    "type": "string",
-                                    "description": "PR state",
-                                    "enum": ["open", "closed", "all"],
-                                    "default": "open"
-                                },
-                                "limit": {
-                                    "type": "integer",
-                                    "description": "Number of PRs to return (1-30)",
-                                    "minimum": 1,
-                                    "maximum": 30,
-                                    "default": 10
-                                },
-                            },
-                            "required": ["owner", "repo"]
-                        }
-                    },
-                    {
-                        "name": "search_code", 
-                        "description": "Search for code on GitHub", 
-                        "inputSchema": {
-                            "type": "object", 
-                            "properties": {
-                                "query": {
-                                    "type": "string",
-                                    "description": "Search query"
-                                },
-                                "language": {
-                                    "type": "string",
-                                    "description": "Programming language filter (optional)"
-                                },
-                                "limit": {
-                                    "type": "integer",
-                                    "description": "Number of results to return (1-20)",
-                                    "minimum": 1,
-                                    "maximum": 20,
-                                    "default": 10
-                                },
-                            },
-                            "required": ["query"]
-                        }
-                    }
-                ]
-                return JSONResponse(content={
-                    "jsonrpc": "2.0",
-                    "id": request.get("id"),
-                    "result": {"tools": tools}
-                })
-            elif request.get("method") == "tools/call":
-                tool_name = request.get("params", {}).get("name")
-                tool_args = request.get("params", {}).get("arguments", {})
-                
-                if tool_name == "get_repos":
-                    result = get_repos_http(**tool_args)
-                elif tool_name == "get_issues":
-                    result = get_issues_http(**tool_args)
-                elif tool_name == "get_pull_requests":
-                    result = get_pull_requests_http(**tool_args)
-                elif tool_name == "search_code":
-                    result = search_code_http(**tool_args)
-                else:
-                    return JSONResponse(content={
-                        "jsonrpc": "2.0",
-                        "id": request.get("id"),
-                        "error": {"code": -32601, "message": f"Tool '{tool_name}' not found"}
-                    })
-                
-                return JSONResponse(content={
-                    "jsonrpc": "2.0",
-                    "id": request.get("id"),
-                    "result": {"content": [{"type": "text", "text": result}]}
-                })
-            else:
-                return JSONResponse(content={
-                    "jsonrpc": "2.0",
-                    "id": request.get("id"),
-                    "error": {"code": -32601, "message": f"Method '{request.get('method')}' not found"}
-                })
-                
-        except Exception as e:
-            return JSONResponse(
-                content={
-                    "jsonrpc": "2.0",
-                    "id": request.get("id"),
-                    "error": {"code": -32603, "message": f"Internal error: {str(e)}"}
-                }, 
-                status_code=500
-            )
-    
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    mcp.run(
+        transport="http",
+        host="0.0.0.0",
+        port=port,
+        stateless_http=True
+    )
